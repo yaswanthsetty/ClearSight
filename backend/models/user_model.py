@@ -8,7 +8,7 @@ def register_user(username, password):
     if users_collection.find_one({"username": username}):
         return {"error": "User already exists"}, 400
     hashed_password = bcrypt.generate_password_hash(password).decode('utf-8')
-    users_collection.insert_one({"username": username, "password": hashed_password, "role": "user"})
+    users_collection.insert_one({"username": username, "password": hashed_password, "role": role})
     return {"message": "User registered successfully"}, 201
 
 def login_user(username, password):

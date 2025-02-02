@@ -7,9 +7,14 @@ auth_routes = Blueprint("auth", __name__)
 @auth_routes.route("/register", methods=["POST"])
 def register():
     data = request.json
-    return register_user(data["username"], data["password"])
+    username = data["username"]
+    password = data["password"]
+    role = data.get("role", "user")  # Default role is "user" if not specified
+    return register_user(username, password, role)
+
 
 @auth_routes.route("/login", methods=["POST"])
 def login():
     data = request.json
     return login_user(data["username"], data["password"])
+

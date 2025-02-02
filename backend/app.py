@@ -36,12 +36,13 @@ jwt = JWTManager(app)
 def register():
     data = request.json
     username, password = data['username'], data['password']
+    role = data.get('role', 'user')  # Default to 'user' if no role is specified
     
     if users_collection.find_one({"username": username}):
         return jsonify({"message": "User already exists"}), 400
     
     hashed_password = bcrypt.generate_password_hash(password).decode("utf-8")
-    users_collection.insert_one({"username": username, "password": hashed_password, "role": "user"})
+    users_collection.insert_one({"username": username, "password": hashed_password, "role": role})
     
     return jsonify({"message": "User registered successfully"}), 201
 
@@ -53,12 +54,12 @@ def login():
     password = data.get('password')
 
     user = users_collection.find_one({"username": username})
-    
+
     if not user or not bcrypt.check_password_hash(user["password"], password):
         return jsonify({"message": "Invalid credentials"}), 401
 
-    # ✅ Only store the username (string) as identity
-    access_token = create_access_token(identity=str(username))  
+    # ✅ Only store the username as identity (just the string)
+    access_token = create_access_token(identity=username, additional_claims={"role": user["role"]})
 
     return jsonify({"access_token": access_token}), 200
 
@@ -104,6 +105,35 @@ def upload_file():
     fs.put(file, filename=file.filename)
     
     return jsonify({"message": "File uploaded successfully"}), 200
+
+from flask_jwt_extended import get_jwt, get_jwt_identity
+
+@app.route('/admin-dashboard', methods=['GET'])
+@jwt_required()
+def admin_dashboard():
+    current_user = get_jwt_identity()  # This will now only be the username (string)
+    
+    # Get the user role from the JWT claims
+    current_user_claims = get_jwt()  # This gives you all claims in the token
+    user_role = current_user_claims.get("role")
+    # print(f"JWT Claims: {current_user_claims}")
+
+
+    if not current_user:
+        return jsonify({"message": "Invalid token"}), 401
+
+    if user_role != 'admin':
+        return jsonify({"message": "Access denied. Admins only."}), 403
+
+    return jsonify({
+        "message": f"Welcome, {current_user}! You have admin access."
+    }), 200
+
+from routes.admin_routes import admin_routes
+
+# Register the Blueprint
+app.register_blueprint(admin_routes, url_prefix='/admin')
+
 
 if __name__ == '__main__':
     app.run(debug=True)
